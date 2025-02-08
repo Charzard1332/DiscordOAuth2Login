@@ -1,10 +1,3 @@
-
----
-
-## **✅ Full `TODO.md` for GitHub**
-Save this as **`TODO.md`** in your repository.
-
-```md
 # 🚀 TODO - Future Enhancements
 
 This document lists **planned features** and improvements for the **DiscordOAuth2Login** project.
@@ -13,9 +6,10 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 
 ## 🔥 High Priority Features
 ### 🎮 Discord API Enhancements
-- [ ] **Token Refresh Mechanism** (Avoid manual relogins)
-- [ x ] **Check for Boosted Servers** (Detect if the user has boosted any servers)
+- [x] **Check for Boosted Servers** (Detect if the user has boosted any servers)
+- [x] **Token Refresh Mechanism** (Avoid manual relogins)
 - [ ] **Fetch User's Avatar & Status** (Display profile picture & online status)
+- [ ] **Retrieve User's Discord Badges** (Partner, Hypesquad, etc.)
 
 ### 🖥️ UI & Experience
 - [ ] **GUI Version** (WPF/WinForms UI for easy usage)
@@ -37,6 +31,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 ### 🛡️ Security Improvements
 - [ ] **Encrypt API Credentials** (Avoid exposing secrets in `Program.cs`)
 - [ ] **Use Environment Variables** for storing credentials
+- [ ] **Encrypt `tokens.json` file** (Prevent unauthorized access to saved tokens)
 
 ### 🚀 Performance Optimizations
 - [ ] **Reduce API Calls** (Cache results where possible)
@@ -50,6 +45,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Create GitHub Wiki** (Better documentation for contributors)
 - [ ] **Enable GitHub Discussions** (Allow users to discuss features)
 - [ ] **Automate Builds & Tests** (Use GitHub Actions)
+- [ ] **Add Localization Support** (Multiple language support)
 
 ---
 
