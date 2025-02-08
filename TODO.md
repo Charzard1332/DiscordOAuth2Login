@@ -21,7 +21,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 
 ### 🖥️ UI & Experience
 - [ ] **GUI Version** (WPF/WinForms UI for easy usage)
-- [ ] **Better Console Output** (Color-coded and formatted response)
+- [x] **Better Console Output** (Color-coded and formatted response)
 - [ ] **Configurable Settings File** (`appsettings.json` for storing credentials)
 - [ ] **Add Icons for Badges, Nitro Status & Connected Accounts** (Improve visual clarity)
 - [ ] **Export User Data as JSON or CSV** (Allow users to save their profile info)
