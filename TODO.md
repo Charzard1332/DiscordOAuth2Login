@@ -10,9 +10,11 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [x] **Token Refresh Mechanism** (Avoid manual relogins)
 - [x] **Retrieve User's Discord Badges** (Partner, Hypesquad, etc.)
 - [x] **Retrieve User's Connected Accounts** (Steam, Xbox, Spotify, etc.)
+- [x] **Retrieve User's Active Discord Sessions** (Detect current login device)
 - [ ] **Fetch User's Avatar & Status** (Display profile picture & online status)
-- [ ] **Retrieve User's Active Discord Sessions** (Check logged-in devices)
+- [ ] **Retrieve User's Active Discord Sessions Across Multiple Devices** (Check login history)
 - [ ] **Fetch User's Server Roles** (List user roles per server)
+- [ ] **Retrieve User’s Discord Region** (Approximate based on IP)
 
 ### 🖥️ UI & Experience
 - [ ] **GUI Version** (WPF/WinForms UI for easy usage)
@@ -20,6 +22,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Configurable Settings File** (`appsettings.json` for storing credentials)
 - [ ] **Add Icons for Badges, Nitro Status & Connected Accounts** (Improve visual clarity)
 - [ ] **Export User Data as JSON or CSV** (Allow users to save their profile info)
+- [ ] **Display User's Public IP & ISP Info** (For session tracking)
 
 ### 🌎 Multi-Platform Support
 - [ ] **Docker Support** (Run the app inside a Docker container)
@@ -35,12 +38,14 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Add Logging System** (Log API calls and responses)
 - [ ] **Support for Multiple Discord Accounts** (Switch accounts seamlessly)
 - [ ] **Filter Connected Accounts by Type** (Show only gaming platforms, music, etc.)
+- [ ] **Improve Token Storage** (Switch from JSON files to database)
 
 ### 🛡️ Security Improvements
 - [ ] **Encrypt API Credentials** (Avoid exposing secrets in `Program.cs`)
 - [ ] **Use Environment Variables** for storing credentials
 - [ ] **Encrypt `tokens.json` file** (Prevent unauthorized access to saved tokens)
 - [ ] **Secure OAuth2 Redirection** (Prevent token leakage)
+- [ ] **Enable Two-Factor Authentication (2FA) Checks** (Verify if user has 2FA enabled)
 
 ### 🚀 Performance Optimizations
 - [ ] **Reduce API Calls** (Cache results where possible)
