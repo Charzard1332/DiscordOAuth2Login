@@ -12,8 +12,8 @@ using System.Linq;
 
 class Program
 {
-    private static readonly string clientId = "PLACE-CLIENTID-HERE";
-    private static readonly string clientSecret = "PLACE-SECRET-HERE";
+    private static readonly string clientId = "CLIENTID-HERE";
+    private static readonly string clientSecret = "CLIENTSECRET-HERE";
     private static readonly string redirectUri = "http://localhost:5000/callback";
     private static readonly string tokenFile = "tokens.json";
     private static AccessTokenData tokens;
@@ -26,6 +26,11 @@ class Program
         {
             Console.WriteLine("🔑 Logging in via Discord OAuth...");
             tokens = await LoginAndFetchTokens();
+            if (tokens == null)
+            {
+                Console.WriteLine("❌ Failed to obtain access token. Exiting...");
+                return;
+            }
             SaveTokens(tokens);
         }
         else
@@ -35,14 +40,47 @@ class Program
             {
                 Console.WriteLine("🔄 Token expired. Refreshing...");
                 tokens = await RefreshAccessToken(tokens.RefreshToken);
+                if (tokens == null)
+                {
+                    Console.WriteLine("❌ Failed to refresh access token. Re-login required.");
+                    tokens = await LoginAndFetchTokens();
+                    if (tokens == null)
+                    {
+                        Console.WriteLine("❌ Failed to obtain access token. Exiting...");
+                        return;
+                    }
+                }
                 SaveTokens(tokens);
             }
         }
 
         var user = await GetDiscordUser(tokens.AccessToken);
+        if (user == null)
+        {
+            Console.WriteLine("❌ Failed to fetch user data. Exiting...");
+            return;
+        }
+
         var guilds = await GetUserGuilds(tokens.AccessToken);
+        if (guilds == null)
+        {
+            Console.WriteLine("❌ Failed to fetch user data. Exiting...");
+            return;
+        }
+
         var boostedGuilds = await GetUserBoostedGuilds(tokens.AccessToken);
+        if (boostedGuilds == null)
+        {
+            Console.WriteLine("❌ Failed to fetch user data. Exiting...");
+            return;
+        }
+
         var connections = await GetUserConnections(tokens.AccessToken);
+        if (connections == null)
+        {
+            Console.WriteLine("❌ Failed to fetch user data. Exiting...");
+            return;
+        }
 
         Console.WriteLine($"\n👤 User: {user.Username}#{user.Discriminator}");
         Console.WriteLine(user.PremiumType == 0 ? "🚫 Nitro: No Nitro" : "✅ Nitro: Active Subscription");
@@ -62,81 +100,6 @@ class Program
             string visibility = connection.Visibility == 1 ? "Public" : "Private";
             Console.WriteLine($"✅ {connection.Type.ToUpper()} - {connection.Name} (Verified: {connection.Verified}, Visibility: {visibility})");
         }
-    }
-
-    // 🔹 Load Tokens from File
-    private static AccessTokenData LoadTokens()
-    {
-        if (!File.Exists(tokenFile)) return null;
-
-        try
-        {
-            string json = File.ReadAllText(tokenFile);
-            return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<AccessTokenData>(json);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    // 🔹 Save Tokens to File
-    private static void SaveTokens(AccessTokenData tokens)
-    {
-        if (tokens == null) return;
-        File.WriteAllText(tokenFile, JsonSerializer.Serialize(tokens, new JsonSerializerOptions { WriteIndented = true }));
-    }
-
-    // 🔹 Check if Token is Expired
-    private static bool IsTokenExpired(DateTime expiresAt) => DateTime.UtcNow >= expiresAt;
-
-    // 🔹 Refresh Access Token
-    private static async Task<AccessTokenData> RefreshAccessToken(string refreshToken)
-    {
-        using (var client = new HttpClient())
-        {
-            var content = new FormUrlEncodedContent(new[]
-            {
-                new KeyValuePair<string, string>("client_id", clientId),
-                new KeyValuePair<string, string>("client_secret", clientSecret),
-                new KeyValuePair<string, string>("grant_type", "refresh_token"),
-                new KeyValuePair<string, string>("refresh_token", refreshToken)
-            });
-
-            var response = await client.PostAsync("https://discord.com/api/oauth2/token", content);
-            var responseString = await response.Content.ReadAsStringAsync();
-            var tokenData = JsonSerializer.Deserialize<AccessTokenData>(responseString);
-            tokenData.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
-            return tokenData;
-        }
-    }
-
-    // 🔹 Get Discord User
-    private static async Task<DiscordUser> GetDiscordUser(string accessToken)
-    {
-        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me", accessToken);
-        return JsonSerializer.Deserialize<DiscordUser>(jsonResponse);
-    }
-
-    // 🔹 Get User's Servers
-    private static async Task<List<Guild>> GetUserGuilds(string accessToken)
-    {
-        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me/guilds", accessToken);
-        return JsonSerializer.Deserialize<List<Guild>>(jsonResponse);
-    }
-
-    // 🔹 Get User's Boosted Servers
-    private static async Task<List<Guild>> GetUserBoostedGuilds(string accessToken)
-    {
-        var guilds = await GetUserGuilds(accessToken);
-        return guilds.FindAll(guild => guild.PremiumTier > 0);
-    }
-
-    // 🔹 Get User's Connected Accounts
-    private static async Task<List<DiscordConnection>> GetUserConnections(string accessToken)
-    {
-        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me/connections", accessToken);
-        return JsonSerializer.Deserialize<List<DiscordConnection>>(jsonResponse);
     }
 
     // 🔹 Get User Badges
@@ -159,34 +122,57 @@ class Program
         return badges.Count > 0 ? string.Join(", ", badges) : "None";
     }
 
-    // 🔹 Send HTTP Request with Rate Limit Handling
-    private static async Task<string> SendHttpRequestWithRateLimit(string url, string token, bool isBot = false, int retryCount = 0)
+    // 🔹 Exchange Code for Access Token
+    private static async Task<AccessTokenData> GetAccessToken(string code)
     {
         using (var client = new HttpClient())
         {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(isBot ? "Bot" : "Bearer", token);
-            var response = await client.GetAsync(url);
-
-            if (response.StatusCode == (HttpStatusCode)429) // Rate-limited
+            var content = new FormUrlEncodedContent(new[]
             {
-                int retryAfter = response.Headers.Contains("Retry-After") ?
-                    int.Parse(response.Headers.GetValues("Retry-After").FirstOrDefault()) : 5;
+            new KeyValuePair<string, string>("client_id", clientId),
+            new KeyValuePair<string, string>("client_secret", clientSecret),
+            new KeyValuePair<string, string>("grant_type", "authorization_code"),
+            new KeyValuePair<string, string>("code", code),
+            new KeyValuePair<string, string>("redirect_uri", redirectUri)
+        });
 
-                Console.WriteLine($"⚠️ Rate Limited! Retrying after {retryAfter} seconds...");
-                await Task.Delay(retryAfter * 1000);
-                return await SendHttpRequestWithRateLimit(url, token, isBot, retryCount + 1);
+            var response = await client.PostAsync("https://discord.com/api/oauth2/token", content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine($"📩 OAuth2 Token Response: {responseString}");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"❌ Error: Failed to retrieve access token. Status: {response.StatusCode}");
+                return null;
             }
 
-            return await response.Content.ReadAsStringAsync();
+            try
+            {
+                var tokenData = JsonSerializer.Deserialize<AccessTokenData>(responseString);
+
+                if (tokenData == null || string.IsNullOrEmpty(tokenData.AccessToken))
+                {
+                    Console.WriteLine("❌ Error: `access_token` is missing from the response!");
+                    return null;
+                }
+
+                tokenData.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
+                return tokenData;
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"❌ JSON Parsing Error: {ex.Message}");
+                return null;
+            }
         }
     }
 
-    // 🔹 OAuth2 Login & Token Exchange
     private static async Task<AccessTokenData> LoginAndFetchTokens()
     {
         Process.Start(new ProcessStartInfo
         {
-            FileName = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds%20connections%20bot",
+            FileName = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds%20connections",
             UseShellExecute = true
         });
 
@@ -207,8 +193,22 @@ class Program
         return await GetAccessToken(code);
     }
 
-    // 🔹 Exchange Code for Access Token
-    private static async Task<AccessTokenData> GetAccessToken(string code)
+    private static AccessTokenData LoadTokens()
+    {
+        if (!File.Exists(tokenFile)) return null;
+        string json = File.ReadAllText(tokenFile);
+        return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<AccessTokenData>(json);
+    }
+
+    private static void SaveTokens(AccessTokenData tokens)
+    {
+        if (tokens == null) return;
+        File.WriteAllText(tokenFile, JsonSerializer.Serialize(tokens, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static bool IsTokenExpired(DateTime expiresAt) => DateTime.UtcNow >= expiresAt;
+
+    private static async Task<AccessTokenData> RefreshAccessToken(string refreshToken)
     {
         using (var client = new HttpClient())
         {
@@ -216,22 +216,144 @@ class Program
             {
                 new KeyValuePair<string, string>("client_id", clientId),
                 new KeyValuePair<string, string>("client_secret", clientSecret),
-                new KeyValuePair<string, string>("grant_type", "authorization_code"),
-                new KeyValuePair<string, string>("code", code),
-                new KeyValuePair<string, string>("redirect_uri", redirectUri)
+                new KeyValuePair<string, string>("grant_type", "refresh_token"),
+                new KeyValuePair<string, string>("refresh_token", refreshToken)
             });
 
             var response = await client.PostAsync("https://discord.com/api/oauth2/token", content);
             var responseString = await response.Content.ReadAsStringAsync();
+
+            Console.WriteLine($"📩 Token Refresh Response: {responseString}");
+
             var tokenData = JsonSerializer.Deserialize<AccessTokenData>(responseString);
+            if (tokenData == null || string.IsNullOrEmpty(tokenData.AccessToken))
+            {
+                Console.WriteLine("❌ Failed to refresh token.");
+                return null;
+            }
+
             tokenData.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
             return tokenData;
+        }
+    }
+
+    private static async Task<DiscordUser> GetDiscordUser(string accessToken)
+    {
+        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me", accessToken);
+
+        Console.WriteLine($"API Response (User): {jsonResponse}");
+
+        if (string.IsNullOrEmpty(jsonResponse))
+        {
+            Console.WriteLine("❌ Failed to fetch user data. API response was empty.");
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<DiscordUser>(jsonResponse);
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"❌ JSON Parsing Error: {ex.Message}");
+            return null;
+        }
+    }
+
+
+    private static async Task<List<Guild>> GetUserGuilds(string accessToken)
+    {
+        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me/guilds", accessToken);
+
+        Console.WriteLine($"📩 API Response (Guilds): {jsonResponse}");
+
+        if (string.IsNullOrWhiteSpace(jsonResponse) || jsonResponse.StartsWith("{"))
+        {
+            Console.WriteLine("❌ Error: API returned an invalid response for guilds.");
+            return new List<Guild>();
+        }
+
+        return JsonSerializer.Deserialize<List<Guild>>(jsonResponse);
+    }
+
+    private static async Task<List<Guild>> GetUserBoostedGuilds(string accessToken)
+    {
+        var guilds = await GetUserGuilds(accessToken);
+        Console.WriteLine($"API Response: (Boosted Servers): {guilds}");
+        return guilds?.FindAll(guild => guild.PremiumTier > 0) ?? new List<Guild>();
+    }
+
+    private static async Task<List<DiscordConnection>> GetUserConnections(string accessToken)
+    {
+        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me/connections", accessToken);
+
+        // Log the raw response for debugging
+        Console.WriteLine($"📩 API Response (Connections): {jsonResponse}");
+
+        // If the response is empty or not an array, return an empty list
+        if (string.IsNullOrWhiteSpace(jsonResponse) || jsonResponse.StartsWith("{"))
+        {
+            Console.WriteLine("❌ Error: API returned an invalid response for connections.");
+            return new List<DiscordConnection>();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<DiscordConnection>>(jsonResponse);
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"❌ JSON Deserialization Error: {ex.Message}");
+            return new List<DiscordConnection>();
+        }
+    }
+
+    private static async Task<string> SendHttpRequestWithRateLimit(string url, string token, bool isBot = false, int retryCount = 0)
+    {
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            var response = await client.GetAsync(url);
+            string responseString = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == (HttpStatusCode)429)
+            {
+                int retryAfter = response.Headers.Contains("Retry-After") ?
+                    int.Parse(response.Headers.GetValues("Retry-After").FirstOrDefault()) : 5;
+
+                Console.WriteLine($"⚠️ Rate Limited! Retrying after {retryAfter} seconds...");
+                await Task.Delay(retryAfter * 1000);
+                return await SendHttpRequestWithRateLimit(url, token, isBot, retryCount + 1);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"❌ API Error ({response.StatusCode}): {responseString}");
+                return string.Empty;
+            }
+
+            return responseString;
         }
     }
 }
 
 // 🎭 Discord Data Models
-class AccessTokenData { public string AccessToken { get; set; } public string RefreshToken { get; set; } public int ExpiresIn { get; set; } public DateTime ExpiresAt { get; set; } }
+class AccessTokenData
+{
+    [JsonPropertyName("access_token")]
+    public string AccessToken { get; set; }
+
+    [JsonPropertyName("token_type")]
+    public string TokenType { get; set; }
+
+    [JsonPropertyName("expires_in")]
+    public int ExpiresIn { get; set; }
+
+    [JsonPropertyName("refresh_token")]
+    public string RefreshToken { get; set; }
+
+    public DateTime ExpiresAt { get; set; }
+}
 class DiscordUser { public string Username { get; set; } public string Discriminator { get; set; } public int PremiumType { get; set; } public int Flags { get; set; } }
 class Guild { public string Id { get; set; } public string Name { get; set; } public int PremiumTier { get; set; } }
 class DiscordConnection { public string Id { get; set; } public string Name { get; set; } public string Type { get; set; } public bool Verified { get; set; } public int Visibility { get; set; } }
