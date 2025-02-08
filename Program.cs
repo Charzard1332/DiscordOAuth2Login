@@ -12,8 +12,8 @@ namespace DiscordLoginApp
 {
     internal class Program
     {
-        private static readonly string clientId = "YOUR_DISCORD_CLIENT_ID";
-        private static readonly string clientSecret = "YOUR_DISCORD_CLIENT_SECRET";
+        private static readonly string clientId = "1337672783450341417";
+        private static readonly string clientSecret = "GIURfdw-xkxD2Aztm7YpvHav4afwHEiZ";
         private static readonly string redirectUri = "http://localhost:5000/callback";
         private static readonly string oauthUrl = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds";
 
@@ -48,7 +48,7 @@ namespace DiscordLoginApp
             var user = await GetDiscordUser(token);
 
             Console.WriteLine($"\nUser: {user.Username}#{user.Discriminator}");
-            Console.WriteLine(user.PremiumType == 0 ? "Nitro: ❌ No Nitro" : "Nitro: ✅ Active Subscription");
+            Console.WriteLine(user.PremiumType == 0 ? "Nitro: No Nitro" : "Nitro: Active Subscription");
 
             httpListener.Stop();
         }
