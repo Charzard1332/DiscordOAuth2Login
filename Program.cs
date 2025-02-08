@@ -46,9 +46,23 @@ namespace DiscordLoginApp
             Console.WriteLine("Authorization successful. Fetching user details...");
             var token = await GetAccessToken(code);
             var user = await GetDiscordUser(token);
+            var boostedGuilds = await GetUserBoostedGuilds(token);
 
             Console.WriteLine($"\nUser: {user.Username}#{user.Discriminator}");
             Console.WriteLine(user.PremiumType == 0 ? "Nitro: No Nitro" : "Nitro: Active Subscription");
+
+            Console.WriteLine("\n Boosted Servers:");
+            if (boostedGuilds.Count > 0)
+            {
+                foreach (var guild in boostedGuilds)
+                {
+                    Console.WriteLine($"{guild.Name} (Boost Level: {guild.PremiumTier})");
+                }
+            }
+            else
+            {
+                Console.WriteLine("No Boosted Servers!");
+            }
 
             httpListener.Stop();
         }
@@ -76,6 +90,19 @@ namespace DiscordLoginApp
             }
         }
 
+        private static async Task<List<Guild>> GetUserBoostedGuilds(string accessToken)
+        {
+            using (var client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                var response = await client.GetStringAsync("https://discord.com/api/users/@me/guilds");
+                var guilds = JsonSerializer.Deserialize<List<Guild>>(response);
+
+                // Filter only boosted servers (premium_tier > 0)
+                return guilds.FindAll(guild => guild.PremiumTier > 0);
+            }
+        }
+
         private static async Task<DiscordUser> GetDiscordUser(string accessToken)
         {
             using (var client = new HttpClient())
@@ -85,6 +112,18 @@ namespace DiscordLoginApp
                 var response = await client.GetStringAsync("https://discord.com/api/users/@me");
                 return JsonSerializer.Deserialize<DiscordUser>(response);
             }
+        }
+
+        private class Guild
+        {
+            [JsonPropertyName("id")]
+            public string Id { get; set; }
+
+            [JsonPropertyName("name")]
+            public string Name { get; set; }
+
+            [JsonPropertyName("premium_tier")]
+            public int PremiumTier { get; set; } // 0 = No Boosts, 1-3 = Boost Levels
         }
 
         private class DiscordUser
