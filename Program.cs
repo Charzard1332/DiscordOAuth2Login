@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Data;
+using System.Linq;
 
 class Program
 {
@@ -135,6 +136,62 @@ class Program
         return await GetAccessToken(code);
     }
 
+    private static int GetCurrentUnixTimestamp()
+    {
+        return (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    }
+
+    private static async Task<string> SendHttpRequestWithRateLimit(string url, string token, bool isBot = false, int retryCount = 0)
+    {
+        using (var client = new HttpClient())
+        {
+            try
+            {
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(isBot ? "Bot" : "Bearer", token);
+                var response = await client.GetAsync(url);
+
+                if (response.Headers.Contains("X-RateLimit-Remaining") &&
+                    response.Headers.Contains("X-RateLimit-Reset"))
+                {
+                    int remainingRequests = int.Parse(response.Headers.GetValues("X-RateLimit-Remaining").FirstOrDefault());
+                    int resetTime = int.Parse(response.Headers.GetValues("X-RateLimit-Reset").FirstOrDefault());
+
+                    if (remainingRequests == 0)
+                    {
+                        int waitTime = resetTime - GetCurrentUnixTimestamp();
+                        Console.WriteLine($"⚠️ Rate Limit Reached! Waiting {waitTime} seconds...");
+                        await Task.Delay(waitTime * 1000);
+                    }
+                }
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadAsStringAsync();
+                }
+                else if (response.StatusCode == (HttpStatusCode)429)
+                {
+                    int retryAfter = response.Headers.Contains("Retry-After") ?
+                        int.Parse(response.Headers.GetValues("Retry-After").FirstOrDefault()) :
+                        (int)Math.Pow(2, retryCount);
+
+                    Console.WriteLine($"⚠️ Rate Limited! Retrying after {retryAfter} seconds...");
+                    await Task.Delay(retryAfter * 1000);
+                    return await SendHttpRequestWithRateLimit(url, token, isBot, retryCount + 1);
+                }
+                else
+                {
+                    Console.WriteLine($"❌ API Error: {response.StatusCode} - {response.ReasonPhrase}");
+                    return null;
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"❌ Network Error: {ex.Message}");
+                return null;
+            }
+        }
+    }
+
     private static void LogError(string message)
     {
         string logMessage = $"{DateTime.UtcNow} - {message}\n";
@@ -166,12 +223,8 @@ class Program
 
     private static async Task<List<Guild>> GetUserGuilds(string accessToken)
     {
-        using (var client = new HttpClient())
-        {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            var response = await client.GetStringAsync("https://discord.com/api/users/@me/guilds");
-            return JsonSerializer.Deserialize<List<Guild>>(response);
-        }
+        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me/guilds", accessToken);
+        return jsonResponse != null ? JsonSerializer.Deserialize<List<Guild>>(jsonResponse) : new List<Guild>();
     }
 
 
@@ -198,12 +251,8 @@ class Program
 
     private static async Task<List<DiscordConnection>> GetUserConnections(string accessToken)
     {
-        using (var client = new HttpClient())
-        {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            var response = await client.GetStringAsync("https://discord.com/api/users/@me/connections");
-            return JsonSerializer.Deserialize<List<DiscordConnection>>(response);
-        }
+        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me/connections", accessToken);
+        return jsonResponse != null ? JsonSerializer.Deserialize<List<DiscordConnection>>(jsonResponse) : new List<DiscordConnection>();
     }
 
     private static async Task<AccessTokenData> RefreshAccessToken(string refreshToken)
@@ -258,24 +307,15 @@ class Program
 
     private static async Task<List<Role>> GetServerRoles(string guildId)
     {
-        using (var client = new HttpClient())
-        {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bot", "YOUR_BOT_TOKEN");
-            var response = await client.GetStringAsync($"https://discord.com/api/guilds/{guildId}/roles");
-            return JsonSerializer.Deserialize<List<Role>>(response);
-        }
+        string jsonResponse = await SendHttpRequestWithRateLimit($"https://discord.com/api/guilds/{guildId}/roles", "YOUR_BOT_TOKEN", true);
+        return jsonResponse != null ? JsonSerializer.Deserialize<List<Role>>(jsonResponse) : new List<Role>();
     }
 
     private static async Task<List<Guild>> GetUserBoostedGuilds(string accessToken)
     {
-        using (var client = new HttpClient())
-        {
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            var response = await client.GetStringAsync("https://discord.com/api/users/@me/guilds");
-            var guilds = JsonSerializer.Deserialize<List<Guild>>(response);
-
-            return guilds.FindAll(guild => guild.PremiumTier > 0);
-        }
+        string jsonResponse = await SendHttpRequestWithRateLimit("https://discord.com/api/users/@me/guilds", accessToken);
+        var guilds = jsonResponse != null ? JsonSerializer.Deserialize<List<Guild>>(jsonResponse) : new List<Guild>();
+        return guilds.FindAll(guild => guild.PremiumTier > 0);
     }
 
     private static void SaveTokens(AccessTokenData tokens)
