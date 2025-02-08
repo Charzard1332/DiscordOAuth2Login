@@ -8,17 +8,22 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 ### 🎮 Discord API Enhancements
 - [x] **Check for Boosted Servers** (Detect if the user has boosted any servers)
 - [x] **Token Refresh Mechanism** (Avoid manual relogins)
+- [x] **Retrieve User's Discord Badges** (Partner, Hypesquad, etc.)
 - [ ] **Fetch User's Avatar & Status** (Display profile picture & online status)
-- [ ] **Retrieve User's Discord Badges** (Partner, Hypesquad, etc.)
+- [ ] **Retrieve User's Connected Accounts** (Steam, Xbox, etc.)
+- [ ] **Retrieve User's Active Discord Sessions** (Check logged-in devices)
 
 ### 🖥️ UI & Experience
 - [ ] **GUI Version** (WPF/WinForms UI for easy usage)
 - [ ] **Better Console Output** (Color-coded and formatted response)
 - [ ] **Configurable Settings File** (`appsettings.json` for storing credentials)
+- [ ] **Add Icons for Badges & Nitro Status** (Improve visual clarity)
+- [ ] **Show User's Server Roles** (List user roles per server)
 
 ### 🌎 Multi-Platform Support
 - [ ] **Docker Support** (Run the app inside a Docker container)
 - [ ] **Linux & MacOS Compatibility** (Ensure it runs smoothly)
+- [ ] **Cross-Platform GUI Version** (Electron or MAUI for broader support)
 
 ---
 
@@ -27,15 +32,18 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Better Error Handling** (Gracefully handle API failures)
 - [ ] **Rate Limit Handling** (Respect Discord API limits)
 - [ ] **Add Logging System** (Log API calls and responses)
+- [ ] **Support for Multiple Discord Accounts** (Switch accounts seamlessly)
 
 ### 🛡️ Security Improvements
 - [ ] **Encrypt API Credentials** (Avoid exposing secrets in `Program.cs`)
 - [ ] **Use Environment Variables** for storing credentials
 - [ ] **Encrypt `tokens.json` file** (Prevent unauthorized access to saved tokens)
+- [ ] **Secure OAuth2 Redirection** (Prevent token leakage)
 
 ### 🚀 Performance Optimizations
 - [ ] **Reduce API Calls** (Cache results where possible)
 - [ ] **Async Performance Tweaks** (Improve response time)
+- [ ] **Use Database Storage for Tokens & User Data** (Avoid reliance on JSON files)
 
 ---
 
@@ -46,6 +54,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Enable GitHub Discussions** (Allow users to discuss features)
 - [ ] **Automate Builds & Tests** (Use GitHub Actions)
 - [ ] **Add Localization Support** (Multiple language support)
+- [ ] **Create a Discord Bot Version** (Allow bot commands to fetch user info)
 
 ---
 
