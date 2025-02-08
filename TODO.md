@@ -9,16 +9,17 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [x] **Check for Boosted Servers** (Detect if the user has boosted any servers)
 - [x] **Token Refresh Mechanism** (Avoid manual relogins)
 - [x] **Retrieve User's Discord Badges** (Partner, Hypesquad, etc.)
+- [x] **Retrieve User's Connected Accounts** (Steam, Xbox, Spotify, etc.)
 - [ ] **Fetch User's Avatar & Status** (Display profile picture & online status)
-- [ ] **Retrieve User's Connected Accounts** (Steam, Xbox, etc.)
 - [ ] **Retrieve User's Active Discord Sessions** (Check logged-in devices)
+- [ ] **Fetch User's Server Roles** (List user roles per server)
 
 ### 🖥️ UI & Experience
 - [ ] **GUI Version** (WPF/WinForms UI for easy usage)
 - [ ] **Better Console Output** (Color-coded and formatted response)
 - [ ] **Configurable Settings File** (`appsettings.json` for storing credentials)
-- [ ] **Add Icons for Badges & Nitro Status** (Improve visual clarity)
-- [ ] **Show User's Server Roles** (List user roles per server)
+- [ ] **Add Icons for Badges, Nitro Status & Connected Accounts** (Improve visual clarity)
+- [ ] **Export User Data as JSON or CSV** (Allow users to save their profile info)
 
 ### 🌎 Multi-Platform Support
 - [ ] **Docker Support** (Run the app inside a Docker container)
@@ -33,6 +34,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Rate Limit Handling** (Respect Discord API limits)
 - [ ] **Add Logging System** (Log API calls and responses)
 - [ ] **Support for Multiple Discord Accounts** (Switch accounts seamlessly)
+- [ ] **Filter Connected Accounts by Type** (Show only gaming platforms, music, etc.)
 
 ### 🛡️ Security Improvements
 - [ ] **Encrypt API Credentials** (Avoid exposing secrets in `Program.cs`)
