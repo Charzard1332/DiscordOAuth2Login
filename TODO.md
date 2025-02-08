@@ -14,7 +14,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 ## 🔥 High Priority Features
 ### 🎮 Discord API Enhancements
 - [ ] **Token Refresh Mechanism** (Avoid manual relogins)
-- [ ] **Check for Boosted Servers** (Detect if the user has boosted any servers)
+- [ x ] **Check for Boosted Servers** (Detect if the user has boosted any servers)
 - [ ] **Fetch User's Avatar & Status** (Display profile picture & online status)
 
 ### 🖥️ UI & Experience

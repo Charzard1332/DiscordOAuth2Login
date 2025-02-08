@@ -7,6 +7,7 @@
 ## ✅ Features
 - ✅ **Login via Discord OAuth2**
 - ✅ **Fetch and display Discord username & Nitro status**
+- ✅ **Check if the user has boosted any servers**
 - ✅ **Uses `HttpClient` for API requests**
 - ✅ **Simple, lightweight, and open-source**
 
