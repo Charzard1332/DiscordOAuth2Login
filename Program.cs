@@ -8,13 +8,15 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Data;
 
 class Program
 {
-    private static readonly string clientId = "YOUR_CLIENT_ID";
-    private static readonly string clientSecret = "YOUR_CLIENT_SECRET";
+    private static readonly string clientId = "PLACE-CLIENTID-HERE";
+    private static readonly string clientSecret = "PLACE-SECRET-HERE";
     private static readonly string redirectUri = "http://localhost:5000/callback";
     private static readonly string tokenFile = "tokens.json";
+    private static readonly string logFile = "error.log";
     private static AccessTokenData tokens;
 
     static async Task Main()
@@ -29,36 +31,82 @@ class Program
         }
         else
         {
-            Console.WriteLine("🔄 Checking token expiration...");
+            Console.WriteLine("Checking token expiration...");
             if (IsTokenExpired(tokens.ExpiresAt))
             {
-                Console.WriteLine("🔄 Refreshing token...");
+                Console.WriteLine("Refreshing token...");
                 tokens = await RefreshAccessToken(tokens.RefreshToken);
                 SaveTokens(tokens);
             }
         }
 
         var user = await GetDiscordUser(tokens.AccessToken);
+        var guilds = await GetUserGuilds(tokens.AccessToken);
         var boostedGuilds = await GetUserBoostedGuilds(tokens.AccessToken);
+        var connections = await GetUserConnections(tokens.AccessToken);
+
+        // Get User's Current Device Details
+        string userDevice = GetUserAgent();
+
+        // Get User's Public IP & Location
+        string usersIP = await GetPublicIP();
+        var location = await GetUserLocation(usersIP);
 
         Console.WriteLine($"\nUser: {user.Username}#{user.Discriminator}");
-        Console.WriteLine(user.PremiumType == 0 ? "Nitro: ❌ No Nitro" : "Nitro: ✅ Active Subscription");
+        Console.WriteLine(user.PremiumType == 0 ? "Nitro: No Nitro" : "Nitro: Active Subscription");
 
         // Display Discord Badges
         string userBadges = GetUserBadges(user.Flags);
         Console.WriteLine($"Badges: {userBadges}");
 
-        Console.WriteLine("\n🔹 Boosted Servers:");
+        Console.WriteLine($"Current Device: {userDevice}");
+        Console.WriteLine($"Region: {location.City}, {location.Region}, {location.Country}");
+        Console.WriteLine($"IP Address: {location.IP} (ISP: {location.ISP})");
+
+        Console.WriteLine("\nBoosted Servers:");
         if (boostedGuilds.Count > 0)
         {
             foreach (var guild in boostedGuilds)
             {
-                Console.WriteLine($"✅ {guild.Name} (Boost Level: {guild.PremiumTier})");
+                Console.WriteLine($"{guild.Name} (Boost Level: {guild.PremiumTier})");
             }
         }
         else
         {
-            Console.WriteLine("❌ No boosted servers.");
+            Console.WriteLine("No boosted servers.");
+        }
+
+        Console.WriteLine("\nConnected Accounts:");
+        if (connections.Count > 0)
+        {
+            foreach (var connection in connections)
+            {
+                string visibility = connection.Visibility == 1 ? "Public" : "Private";
+                Console.WriteLine($"{connection.Type.ToUpper()} - {connection.Name} (Verified: {connection.Verified}, Visibility: {visibility})");
+            }
+        }
+        else
+        {
+            Console.WriteLine("No connected accounts found.");
+        }
+
+        Console.WriteLine("\nServers & Roles");
+        foreach (var guild in guilds)
+        {
+            var roles = await GetServerRoles(guild.Id);
+            Console.WriteLine($"{guild.Name}");
+
+            if (roles.Count > 0)
+            {
+                foreach (var role in roles)
+                {
+                    Console.WriteLine($"- {role.Name}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("No Roles Found!");
+            }
         }
     }
 
@@ -66,7 +114,7 @@ class Program
     {
         Process.Start(new ProcessStartInfo
         {
-            FileName = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds",
+            FileName = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds%20connections$20bot",
             UseShellExecute = true
         });
 
@@ -87,6 +135,46 @@ class Program
         return await GetAccessToken(code);
     }
 
+    private static void LogError(string message)
+    {
+        string logMessage = $"{DateTime.UtcNow} - {message}\n";
+        File.AppendAllText(logFile, logMessage);
+        Console.WriteLine($"❌ Error logged: {message}");
+    }
+
+    private static string GetUserAgent()
+    {
+        return System.Runtime.InteropServices.RuntimeInformation.OSDescription;
+    }
+
+    private static async Task<string> GetPublicIP()
+    {
+        using (var client = new HttpClient())
+        {
+            return await client.GetStringAsync("https://api64.ipify.org");
+        }
+    }
+
+    private static async Task<UserLocation> GetUserLocation(string ip)
+    {
+        using (var client = new HttpClient())
+        {
+            var response = await client.GetStringAsync($"https://ipapi.co/{ip}/json/");
+            return JsonSerializer.Deserialize<UserLocation>(response);
+        }
+    }
+
+    private static async Task<List<Guild>> GetUserGuilds(string accessToken)
+    {
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            var response = await client.GetStringAsync("https://discord.com/api/users/@me/guilds");
+            return JsonSerializer.Deserialize<List<Guild>>(response);
+        }
+    }
+
+
     private static async Task<AccessTokenData> GetAccessToken(string code)
     {
         using (var client = new HttpClient())
@@ -105,6 +193,16 @@ class Program
             var tokenData = JsonSerializer.Deserialize<AccessTokenData>(responseString);
             tokenData.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
             return tokenData;
+        }
+    }
+
+    private static async Task<List<DiscordConnection>> GetUserConnections(string accessToken)
+    {
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            var response = await client.GetStringAsync("https://discord.com/api/users/@me/connections");
+            return JsonSerializer.Deserialize<List<DiscordConnection>>(response);
         }
     }
 
@@ -158,6 +256,16 @@ class Program
         }
     }
 
+    private static async Task<List<Role>> GetServerRoles(string guildId)
+    {
+        using (var client = new HttpClient())
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bot", "YOUR_BOT_TOKEN");
+            var response = await client.GetStringAsync($"https://discord.com/api/guilds/{guildId}/roles");
+            return JsonSerializer.Deserialize<List<Role>>(response);
+        }
+    }
+
     private static async Task<List<Guild>> GetUserBoostedGuilds(string accessToken)
     {
         using (var client = new HttpClient())
@@ -187,6 +295,61 @@ class Program
     private static bool IsTokenExpired(DateTime expiresAt)
     {
         return DateTime.UtcNow >= expiresAt;
+    }
+
+    private class Role
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("permissions")]
+        public string Permissions { get; set; }
+    }
+
+    private class UserLocation
+    {
+        [JsonPropertyName("ip")]
+        public string IP { get; set; }
+
+        [JsonPropertyName("city")]
+        public string City { get; set; }
+
+        [JsonPropertyName("region")]
+        public string Region { get; set; }
+
+        [JsonPropertyName("country_name")]
+        public string Country { get; set; }
+
+        [JsonPropertyName("latitude")]
+        public double Latitude { get; set; }
+
+        [JsonPropertyName("longitude")]
+        public double Longitude { get; set; }
+
+        [JsonPropertyName("org")]
+        public string ISP { get; set; }
+    }
+
+
+    private class DiscordConnection
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("type")]
+        public string Type { get; set; }
+
+        [JsonPropertyName("verified")]
+        public bool Verified { get; set; }
+
+        [JsonPropertyName("visibility")]
+        public int Visibility { get; set; } // 1 = Visible to everyone, 0 = Private
     }
 
     private class AccessTokenData
@@ -225,6 +388,15 @@ class Program
 
         [JsonPropertyName("name")]
         public string Name { get; set; }
+
+        [JsonPropertyName("icon")]
+        public string Icon { get; set; }
+
+        [JsonPropertyName("owner")]
+        public bool IsOwner { get; set; }
+
+        [JsonPropertyName("permissions")]
+        public int Permissions { get; set; }
 
         [JsonPropertyName("premium_tier")]
         public int PremiumTier { get; set; } // 0 = No Boosts, 1-3 = Boost Levels
