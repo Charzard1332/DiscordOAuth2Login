@@ -44,6 +44,10 @@ class Program
         Console.WriteLine($"\nUser: {user.Username}#{user.Discriminator}");
         Console.WriteLine(user.PremiumType == 0 ? "Nitro: ❌ No Nitro" : "Nitro: ✅ Active Subscription");
 
+        // Display Discord Badges
+        string userBadges = GetUserBadges(user.Flags);
+        Console.WriteLine($"Badges: {userBadges}");
+
         Console.WriteLine("\n🔹 Boosted Servers:");
         if (boostedGuilds.Count > 0)
         {
@@ -62,7 +66,7 @@ class Program
     {
         Process.Start(new ProcessStartInfo
         {
-            FileName = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds%20token",
+            FileName = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds",
             UseShellExecute = true
         });
 
@@ -122,6 +126,26 @@ class Program
             tokenData.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
             return tokenData;
         }
+    }
+
+    private static string GetUserBadges(int flags)
+    {
+        var badges = new List<string>();
+
+        if ((flags & 1) != 0) badges.Add("Discord Staff");
+        if ((flags & 2) != 0) badges.Add("Discord Partner");
+        if ((flags & 4) != 0) badges.Add("HypeSquad Events");
+        if ((flags & 8) != 0) badges.Add("Bug Hunter Level 1");
+        if ((flags & 64) != 0) badges.Add("HypeSquad Bravery");
+        if ((flags & 128) != 0) badges.Add("HypeSquad Brilliance");
+        if ((flags & 256) != 0) badges.Add("HypeSquad Balance");
+        if ((flags & 512) != 0) badges.Add("Early Supporter");
+        if ((flags & 1024) != 0) badges.Add("Team User");
+        if ((flags & 4096) != 0) badges.Add("System User");
+        if ((flags & 16384) != 0) badges.Add("Bug Hunter Level 2");
+        if ((flags & 131072) != 0) badges.Add("Verified Bot Developer");
+
+        return badges.Count > 0 ? string.Join(", ", badges) : "None";
     }
 
     private static async Task<DiscordUser> GetDiscordUser(string accessToken)
@@ -189,6 +213,9 @@ class Program
 
         [JsonPropertyName("premium_type")]
         public int PremiumType { get; set; } // 0 = No Nitro, 1 = Nitro Classic, 2 = Nitro
+
+        [JsonPropertyName("flags")]
+        public int Flags { get; set; } // Bitwise value representing user badges
     }
 
     private class Guild
