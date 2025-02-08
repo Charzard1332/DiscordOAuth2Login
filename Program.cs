@@ -1,141 +1,205 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
 
-namespace DiscordLoginApp
+class Program
 {
-    internal class Program
+    private static readonly string clientId = "YOUR_CLIENT_ID";
+    private static readonly string clientSecret = "YOUR_CLIENT_SECRET";
+    private static readonly string redirectUri = "http://localhost:5000/callback";
+    private static readonly string tokenFile = "tokens.json";
+    private static AccessTokenData tokens;
+
+    static async Task Main()
     {
-        private static readonly string clientId = "1337672783450341417";
-        private static readonly string clientSecret = "GIURfdw-xkxD2Aztm7YpvHav4afwHEiZ";
-        private static readonly string redirectUri = "http://localhost:5000/callback";
-        private static readonly string oauthUrl = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds";
+        tokens = LoadTokens();
 
-        static async Task Main()
+        if (tokens == null || string.IsNullOrEmpty(tokens.AccessToken))
         {
-            Console.WriteLine("Opening Discord Login Page...");
-            Process.Start(new ProcessStartInfo { FileName = oauthUrl, UseShellExecute = true });
-
-            var httpListener = new HttpListener();
-            httpListener.Prefixes.Add("http://localhost:5000/");
-            httpListener.Start();
-
-            Console.WriteLine("Waiting for authentication...");
-            var context = await httpListener.GetContextAsync();
-            var response = context.Response;
-            string responseString = "<html><body><h2>You can close this tab now.</h2></body></html>";
-            var buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
-            response.ContentLength64 = buffer.Length;
-            var output = response.OutputStream;
-            output.Write(buffer, 0, buffer.Length);
-            output.Close();
-
-            string code = context.Request.QueryString["code"];
-            if (string.IsNullOrEmpty(code))
+            Console.WriteLine("Logging in via Discord OAuth...");
+            tokens = await LoginAndFetchTokens();
+            SaveTokens(tokens);
+        }
+        else
+        {
+            Console.WriteLine("🔄 Checking token expiration...");
+            if (IsTokenExpired(tokens.ExpiresAt))
             {
-                Console.WriteLine("Authorization failed.");
-                return;
+                Console.WriteLine("🔄 Refreshing token...");
+                tokens = await RefreshAccessToken(tokens.RefreshToken);
+                SaveTokens(tokens);
             }
-
-            Console.WriteLine("Authorization successful. Fetching user details...");
-            var token = await GetAccessToken(code);
-            var user = await GetDiscordUser(token);
-            var boostedGuilds = await GetUserBoostedGuilds(token);
-
-            Console.WriteLine($"\nUser: {user.Username}#{user.Discriminator}");
-            Console.WriteLine(user.PremiumType == 0 ? "Nitro: No Nitro" : "Nitro: Active Subscription");
-
-            Console.WriteLine("\n Boosted Servers:");
-            if (boostedGuilds.Count > 0)
-            {
-                foreach (var guild in boostedGuilds)
-                {
-                    Console.WriteLine($"{guild.Name} (Boost Level: {guild.PremiumTier})");
-                }
-            }
-            else
-            {
-                Console.WriteLine("No Boosted Servers!");
-            }
-
-            httpListener.Stop();
         }
 
-        private static async Task<string> GetAccessToken(string code)
+        var user = await GetDiscordUser(tokens.AccessToken);
+        var boostedGuilds = await GetUserBoostedGuilds(tokens.AccessToken);
+
+        Console.WriteLine($"\nUser: {user.Username}#{user.Discriminator}");
+        Console.WriteLine(user.PremiumType == 0 ? "Nitro: ❌ No Nitro" : "Nitro: ✅ Active Subscription");
+
+        Console.WriteLine("\n🔹 Boosted Servers:");
+        if (boostedGuilds.Count > 0)
         {
-            using (var client = new HttpClient())
+            foreach (var guild in boostedGuilds)
             {
-                var content = new FormUrlEncodedContent(new[]
-                {
-            new KeyValuePair<string, string>("client_id", clientId),
-            new KeyValuePair<string, string>("client_secret", clientSecret),
-            new KeyValuePair<string, string>("grant_type", "authorization_code"),
-            new KeyValuePair<string, string>("code", code),
-            new KeyValuePair<string, string>("redirect_uri", redirectUri)
+                Console.WriteLine($"✅ {guild.Name} (Boost Level: {guild.PremiumTier})");
+            }
+        }
+        else
+        {
+            Console.WriteLine("❌ No boosted servers.");
+        }
+    }
+
+    private static async Task<AccessTokenData> LoginAndFetchTokens()
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = $"https://discord.com/api/oauth2/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(redirectUri)}&response_type=code&scope=identify%20email%20guilds%20token",
+            UseShellExecute = true
         });
 
-                var response = await client.PostAsync("https://discord.com/api/oauth2/token", content);
-                var responseString = await response.Content.ReadAsStringAsync();
+        var httpListener = new HttpListener();
+        httpListener.Prefixes.Add("http://localhost:5000/");
+        httpListener.Start();
+        var context = await httpListener.GetContextAsync();
+        var response = context.Response;
+        string responseString = "<html><body><h2>You can close this tab now.</h2></body></html>";
+        var buffer = System.Text.Encoding.UTF8.GetBytes(responseString);
+        response.ContentLength64 = buffer.Length;
+        var output = response.OutputStream;
+        output.Write(buffer, 0, buffer.Length);
+        output.Close();
 
-                using (var jsonDoc = JsonDocument.Parse(responseString))
-                {
-                    return jsonDoc.RootElement.GetProperty("access_token").GetString();
-                }
-            }
-        }
+        string code = context.Request.QueryString["code"];
+        httpListener.Stop();
+        return await GetAccessToken(code);
+    }
 
-        private static async Task<List<Guild>> GetUserBoostedGuilds(string accessToken)
+    private static async Task<AccessTokenData> GetAccessToken(string code)
+    {
+        using (var client = new HttpClient())
         {
-            using (var client = new HttpClient())
+            var content = new FormUrlEncodedContent(new[]
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                var response = await client.GetStringAsync("https://discord.com/api/users/@me/guilds");
-                var guilds = JsonSerializer.Deserialize<List<Guild>>(response);
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("client_secret", clientSecret),
+                new KeyValuePair<string, string>("grant_type", "authorization_code"),
+                new KeyValuePair<string, string>("code", code),
+                new KeyValuePair<string, string>("redirect_uri", redirectUri)
+            });
 
-                // Filter only boosted servers (premium_tier > 0)
-                return guilds.FindAll(guild => guild.PremiumTier > 0);
-            }
+            var response = await client.PostAsync("https://discord.com/api/oauth2/token", content);
+            var responseString = await response.Content.ReadAsStringAsync();
+            var tokenData = JsonSerializer.Deserialize<AccessTokenData>(responseString);
+            tokenData.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
+            return tokenData;
         }
+    }
 
-        private static async Task<DiscordUser> GetDiscordUser(string accessToken)
+    private static async Task<AccessTokenData> RefreshAccessToken(string refreshToken)
+    {
+        using (var client = new HttpClient())
         {
-            using (var client = new HttpClient())
+            var content = new FormUrlEncodedContent(new[]
             {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("client_secret", clientSecret),
+                new KeyValuePair<string, string>("grant_type", "refresh_token"),
+                new KeyValuePair<string, string>("refresh_token", refreshToken)
+            });
 
-                var response = await client.GetStringAsync("https://discord.com/api/users/@me");
-                return JsonSerializer.Deserialize<DiscordUser>(response);
-            }
+            var response = await client.PostAsync("https://discord.com/api/oauth2/token", content);
+            var responseString = await response.Content.ReadAsStringAsync();
+            var tokenData = JsonSerializer.Deserialize<AccessTokenData>(responseString);
+            tokenData.ExpiresAt = DateTime.UtcNow.AddSeconds(tokenData.ExpiresIn);
+            return tokenData;
         }
+    }
 
-        private class Guild
+    private static async Task<DiscordUser> GetDiscordUser(string accessToken)
+    {
+        using (var client = new HttpClient())
         {
-            [JsonPropertyName("id")]
-            public string Id { get; set; }
-
-            [JsonPropertyName("name")]
-            public string Name { get; set; }
-
-            [JsonPropertyName("premium_tier")]
-            public int PremiumTier { get; set; } // 0 = No Boosts, 1-3 = Boost Levels
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            var response = await client.GetStringAsync("https://discord.com/api/users/@me");
+            return JsonSerializer.Deserialize<DiscordUser>(response);
         }
+    }
 
-        private class DiscordUser
+    private static async Task<List<Guild>> GetUserBoostedGuilds(string accessToken)
+    {
+        using (var client = new HttpClient())
         {
-            [JsonPropertyName("username")]
-            public string Username { get; set; }
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            var response = await client.GetStringAsync("https://discord.com/api/users/@me/guilds");
+            var guilds = JsonSerializer.Deserialize<List<Guild>>(response);
 
-            [JsonPropertyName("discriminator")]
-            public string Discriminator { get; set; }
-
-            [JsonPropertyName("premium_type")]
-            public int PremiumType { get; set; } // 0 = No Nitro, 1 = Nitro Classic, 2 = Nitro
+            return guilds.FindAll(guild => guild.PremiumTier > 0);
         }
+    }
+
+    private static void SaveTokens(AccessTokenData tokens)
+    {
+        File.WriteAllText(tokenFile, JsonSerializer.Serialize(tokens));
+    }
+
+    private static AccessTokenData LoadTokens()
+    {
+        if (File.Exists(tokenFile))
+        {
+            return JsonSerializer.Deserialize<AccessTokenData>(File.ReadAllText(tokenFile));
+        }
+        return null;
+    }
+
+    private static bool IsTokenExpired(DateTime expiresAt)
+    {
+        return DateTime.UtcNow >= expiresAt;
+    }
+
+    private class AccessTokenData
+    {
+        [JsonPropertyName("access_token")]
+        public string AccessToken { get; set; }
+
+        [JsonPropertyName("refresh_token")]
+        public string RefreshToken { get; set; }
+
+        [JsonPropertyName("expires_in")]
+        public int ExpiresIn { get; set; }
+
+        public DateTime ExpiresAt { get; set; }
+    }
+
+    private class DiscordUser
+    {
+        [JsonPropertyName("username")]
+        public string Username { get; set; }
+
+        [JsonPropertyName("discriminator")]
+        public string Discriminator { get; set; }
+
+        [JsonPropertyName("premium_type")]
+        public int PremiumType { get; set; } // 0 = No Nitro, 1 = Nitro Classic, 2 = Nitro
+    }
+
+    private class Guild
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("premium_tier")]
+        public int PremiumTier { get; set; } // 0 = No Boosts, 1-3 = Boost Levels
     }
 }
