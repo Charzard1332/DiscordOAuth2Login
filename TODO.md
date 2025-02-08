@@ -13,6 +13,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [x] **Retrieve User's Active Discord Sessions** (Detect current login device)
 - [x] **Retrieve User’s Discord Region** (Approximate based on IP)
 - [x] **Fetch User's Server Roles** (List user roles per server)
+- [x] **Better Error Handling** (Gracefully handle API failures)
 - [ ] **Fetch User's Avatar & Status** (Display profile picture & online status)
 - [ ] **Retrieve User's Active Discord Sessions Across Multiple Devices** (Check login history)
 - [ ] **Implement User Location Opt-Out Feature** (Allow users to disable region tracking)
@@ -37,9 +38,9 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 
 ## 🛠️ Medium Priority Enhancements
 ### 🔗 API & Backend Improvements
-- [ ] **Better Error Handling** (Gracefully handle API failures)
-- [ ] **Rate Limit Handling** (Respect Discord API limits)
-- [ ] **Add Logging System** (Log API calls and responses)
+- [x] **Improve API Error Handling** (Log and retry failed API calls)
+- [ ] **Better Rate Limit Handling** (Respect Discord API limits)
+- [ ] **Add Logging System** (Log API calls and responses for debugging)
 - [ ] **Support for Multiple Discord Accounts** (Switch accounts seamlessly)
 - [ ] **Filter Connected Accounts by Type** (Show only gaming platforms, music, etc.)
 - [ ] **Improve Token Storage** (Switch from JSON files to database)
@@ -57,6 +58,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Reduce API Calls** (Cache results where possible)
 - [ ] **Async Performance Tweaks** (Improve response time)
 - [ ] **Use Database Storage for Tokens & User Data** (Avoid reliance on JSON files)
+- [ ] **Retry API Requests with Exponential Backoff** (Avoid excessive retries)
 
 ---
 
