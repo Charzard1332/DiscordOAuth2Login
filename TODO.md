@@ -11,10 +11,12 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [x] **Retrieve User's Discord Badges** (Partner, Hypesquad, etc.)
 - [x] **Retrieve User's Connected Accounts** (Steam, Xbox, Spotify, etc.)
 - [x] **Retrieve User's Active Discord Sessions** (Detect current login device)
+- [x] **Retrieve User’s Discord Region** (Approximate based on IP)
+- [x] **Fetch User's Server Roles** (List user roles per server)
 - [ ] **Fetch User's Avatar & Status** (Display profile picture & online status)
 - [ ] **Retrieve User's Active Discord Sessions Across Multiple Devices** (Check login history)
-- [ ] **Fetch User's Server Roles** (List user roles per server)
-- [ ] **Retrieve User’s Discord Region** (Approximate based on IP)
+- [ ] **Implement User Location Opt-Out Feature** (Allow users to disable region tracking)
+- [ ] **Display Server Role Permissions** (Show what each role can do)
 
 ### 🖥️ UI & Experience
 - [ ] **GUI Version** (WPF/WinForms UI for easy usage)
@@ -23,6 +25,8 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Add Icons for Badges, Nitro Status & Connected Accounts** (Improve visual clarity)
 - [ ] **Export User Data as JSON or CSV** (Allow users to save their profile info)
 - [ ] **Display User's Public IP & ISP Info** (For session tracking)
+- [ ] **Show User’s Last Login Date & Time** (Retrieve timestamp for previous logins)
+- [ ] **Allow Users to Filter Servers** (Show only owned servers or specific ones)
 
 ### 🌎 Multi-Platform Support
 - [ ] **Docker Support** (Run the app inside a Docker container)
@@ -39,6 +43,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Support for Multiple Discord Accounts** (Switch accounts seamlessly)
 - [ ] **Filter Connected Accounts by Type** (Show only gaming platforms, music, etc.)
 - [ ] **Improve Token Storage** (Switch from JSON files to database)
+- [ ] **Use Alternative GeoIP APIs** (For better accuracy and redundancy)
 
 ### 🛡️ Security Improvements
 - [ ] **Encrypt API Credentials** (Avoid exposing secrets in `Program.cs`)
@@ -46,6 +51,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Encrypt `tokens.json` file** (Prevent unauthorized access to saved tokens)
 - [ ] **Secure OAuth2 Redirection** (Prevent token leakage)
 - [ ] **Enable Two-Factor Authentication (2FA) Checks** (Verify if user has 2FA enabled)
+- [ ] **Anonymize IP Data Before Storing** (Privacy-friendly tracking)
 
 ### 🚀 Performance Optimizations
 - [ ] **Reduce API Calls** (Cache results where possible)
@@ -62,6 +68,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 - [ ] **Automate Builds & Tests** (Use GitHub Actions)
 - [ ] **Add Localization Support** (Multiple language support)
 - [ ] **Create a Discord Bot Version** (Allow bot commands to fetch user info)
+- [ ] **Allow Users to Search for Specific Roles** (Filter large servers' roles)
 
 ---
 
