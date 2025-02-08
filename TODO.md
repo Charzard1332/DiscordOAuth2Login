@@ -39,7 +39,7 @@ This document lists **planned features** and improvements for the **DiscordOAuth
 ## 🛠️ Medium Priority Enhancements
 ### 🔗 API & Backend Improvements
 - [x] **Improve API Error Handling** (Log and retry failed API calls)
-- [ ] **Better Rate Limit Handling** (Respect Discord API limits)
+- [x] **Better Rate Limit Handling** (Respect Discord API limits)
 - [ ] **Add Logging System** (Log API calls and responses for debugging)
 - [ ] **Support for Multiple Discord Accounts** (Switch accounts seamlessly)
 - [ ] **Filter Connected Accounts by Type** (Show only gaming platforms, music, etc.)
